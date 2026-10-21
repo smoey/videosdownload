@@ -1,27 +1,32 @@
-# 视频下载器（Cloudflare Pages 版）
+# 视频下载器（Cloudflare 版）
 
-在线解析并下载 **抖音、小红书、YouTube、X (Twitter)、TikTok** 的视频、图片和音频。纯前端页面 + Cloudflare Pages Functions，不需要自己的服务器。
+在线解析并下载 **抖音、小红书、YouTube、X (Twitter)、TikTok** 的视频、图片和音频。纯前端页面 + Cloudflare Workers / Pages Functions，不需要自己的服务器。
 
 - 支持直接粘贴 App 里的整段分享文案，会自动提取链接
 - 抖音、TikTok 去水印；小红书优先给原画地址；X 自动选最高码率
 - 下载经过 `/api/media` 中转，带上平台要求的 Referer，浏览器直接保存为文件
 
-## 部署到 Cloudflare Pages
+## 部署到 Cloudflare
 
-1. 打开 Cloudflare 控制台 → **Workers 和 Pages** → **创建** → **Pages** → **连接到 Git**，选择本仓库。
-2. 构建设置：
-   - 框架预设：`无`
-   - 构建命令：留空
-   - 构建输出目录：`public`
-3. 点 **保存并部署**。`functions/` 目录会被自动识别为后端接口。
+两种方式都可以，选一种：
 
-也可以用命令行：`npm install && npx wrangler pages deploy`。
+**方式一：Workers（推荐，Cloudflare 控制台现在默认就是这个）**
 
-本地调试：`npm install && npm run dev`，打开 http://localhost:8788 。运行测试：`npm test`。
+1. Cloudflare 控制台 → **Workers 和 Pages** → **创建** → **导入存储库**，选择本仓库。
+2. 构建命令留空，部署命令保持 `npx wrangler deploy`。
+3. 保存并部署。Worker 名称建议填 `videosdownload`（和 `wrangler.toml` 里的 `name` 一致）。
+
+**方式二：Pages**
+
+1. **创建** → **Pages** → **连接到 Git**，选择本仓库。
+2. 框架预设选 `无`，构建命令留空，构建输出目录填 `public`。
+3. 保存并部署。`functions/` 目录会被自动识别为后端接口，`wrangler.toml` 会被忽略。
+
+本地调试：`npm install && npm run dev`，打开 http://localhost:8787 。运行测试：`npm test`。
 
 ## 可选环境变量
 
-在 Pages 项目 → 设置 → 环境变量 里添加：
+在 Worker 或 Pages 项目 → 设置 → 变量和机密 里添加：
 
 | 变量 | 作用 |
 | --- | --- |

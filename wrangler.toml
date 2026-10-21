@@ -1,4 +1,9 @@
+# 用 Workers 部署（Cloudflare 控制台“创建 Worker → 导入 Git 仓库”，部署命令 npx wrangler deploy）。
+# 用 Pages 部署时这个文件会被忽略，Pages 会自动使用 functions/ 目录和 public/ 输出目录。
 name = "videosdownload"
-pages_build_output_dir = "public"
+main = "src/worker.js"
 compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "public"
+binding = "ASSETS"
