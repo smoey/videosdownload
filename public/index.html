@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>视频下载器</title>
+<meta name="description" content="在线下载抖音、小红书、YouTube、X、TikTok 视频和图片">
+<meta name="referrer" content="no-referrer">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1a1d21; --muted:#6b7280; --line:#e5e7eb; --soft:#f1f2f4; --accent:#ff2c55; --accent-ink:#fff; --err:#d93036; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111317; --card:#1b1e24; --text:#eceef1; --muted:#9aa1ab; --line:#2c3038; --soft:#23272e; --err:#ff6b70; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:48px 16px 32px; }
+  h1 { font-size:28px; margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+  .chip { padding:2px 10px; border:1px solid var(--line); border-radius:999px; font-size:13px; color:var(--muted); }
+  form { display:flex; gap:8px; }
+  textarea { flex:1; min-height:56px; resize:vertical; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); font:inherit; }
+  textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  button, .btn { border:0; border-radius:12px; padding:0 22px; background:var(--accent); color:var(--accent-ink); font:inherit; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  button:disabled { opacity:.55; cursor:wait; }
+  .ghost { background:var(--soft); color:var(--text); font-weight:500; }
+  .msg { margin-top:14px; font-size:14px; min-height:1.6em; color:var(--muted); }
+  .msg.err { color:var(--err); }
+  .card { margin-top:8px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; display:none; }
+  .head { display:flex; gap:16px; }
+  .head img { width:168px; aspect-ratio:3/4; object-fit:cover; border-radius:10px; background:var(--soft); flex-shrink:0; }
+  .meta h2 { font-size:17px; margin:0 0 6px; word-break:break-word; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+  .meta p { margin:0; color:var(--muted); font-size:14px; }
+  .list { margin-top:16px; display:grid; gap:8px; }
+  .item { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; background:var(--soft); }
+  .item .k { font-size:12px; padding:1px 8px; border-radius:6px; border:1px solid var(--line); color:var(--muted); flex-shrink:0; }
+  .item .l { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .btn { padding:6px 14px; font-size:14px; border-radius:8px; }
+  .item .ghost { padding:6px 12px; font-size:14px; border-radius:8px; }
+  .tip { margin-top:12px; font-size:13px; color:var(--muted); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+  @media (max-width:560px) { form { flex-direction:column; } form button { padding:12px; } .head img { width:110px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>视频下载器</h1>
+  <p class="sub">粘贴视频链接或 App 里的整段分享文案，解析后直接保存视频、图片或音频。</p>
+  <div class="chips"><span class="chip">抖音</span><span class="chip">小红书</span><span class="chip">YouTube</span><span class="chip">X / Twitter</span><span class="chip">TikTok</span></div>
+
+  <form id="f">
+    <textarea id="u" placeholder="例如：https://v.douyin.com/xxxx/  或  https://x.com/user/status/123" required></textarea>
+    <button id="go">解析</button>
+  </form>
+  <div class="msg" id="msg"></div>
+
+  <section class="card" id="card">
+    <div class="head">
+      <img id="cover" alt="">
+      <div class="meta"><h2 id="title"></h2><p id="sub"></p></div>
+    </div>
+    <div class="list" id="list"></div>
+    <p class="tip">点“下载”会直接保存文件。如果手机浏览器打开了视频页面而不是下载，请长按视频选择保存。</p>
+  </section>
+
+  <footer>仅供个人学习与备份使用。请遵守各平台服务条款，尊重原作者版权，不要将下载内容用于二次传播或商业用途。</footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const KIND = { video: "视频", image: "图片", audio: "音频" };
+
+function say(text, err) { $("msg").textContent = text || ""; $("msg").className = "msg" + (err ? " err" : ""); }
+function fmtDur(s) { if (!s) return ""; s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+function proxied(m, name, inline) {
+  if (m.direct) return m.url;
+  const q = new URLSearchParams({ u: m.url, n: name, e: m.ext || "mp4" });
+  if (inline) q.set("inline", "1");
+  return "/api/media?" + q;
+}
+function el(tag, props, text) { const e = document.createElement(tag); Object.assign(e, props || {}); if (text != null) e.textContent = text; return e; }
+
+$("u").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("f").requestSubmit(); } });
+
+$("f").onsubmit = async (e) => {
+  e.preventDefault();
+  $("go").disabled = true; $("card").style.display = "none"; say("正在解析…");
+  try {
+    const r = await fetch("/api/parse", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: $("u").value }) });
+    const d = await r.json().catch(() => ({ error: `服务器错误（HTTP ${r.status}）` }));
+    if (!r.ok) throw new Error(d.error || "解析失败");
+    render(d); say("");
+  } catch (err) { say(err.message, true); }
+  finally { $("go").disabled = false; }
+};
+
+function render(d) {
+  const base = (d.title || d.platform_name).replace(/\s+/g, " ").slice(0, 40);
+  if (d.cover) { $("cover").src = proxied({ url: d.cover, ext: "jpg" }, "cover", true); $("cover").style.display = ""; }
+  else $("cover").style.display = "none";
+  $("cover").onerror = () => { $("cover").onerror = null; if (d.cover) $("cover").src = d.cover; };
+  $("title").textContent = d.title;
+  $("sub").textContent = [d.platform_name, d.author, fmtDur(d.duration)].filter(Boolean).join(" · ");
+  const list = $("list"); list.replaceChildren();
+  d.media.forEach((m, i) => {
+    const name = d.media.length > 1 ? `${base} ${i + 1}` : base;
+    const row = el("div", { className: "item" });
+    row.append(el("span", { className: "k" }, KIND[m.kind] || m.kind), el("span", { className: "l", title: m.label }, m.label));
+    row.append(el("a", { className: "btn ghost", href: proxied(m, name, true), target: "_blank", rel: "noreferrer" }, "预览"));
+    row.append(el("a", { className: "btn", href: proxied(m, name, false), download: `${name}.${m.ext || "mp4"}`, rel: "noreferrer" }, "下载"));
+    list.append(row);
+  });
+  $("card").style.display = "block";
+}
+</script>
+</body>
+</html>
